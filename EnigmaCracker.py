@@ -5,15 +5,17 @@ from datetime import datetime, timedelta
 from bip_utils import Bip39MnemonicGenerator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes, Bip39WordsNum
 import logging
 import concurrent.futures
+import os
 
 # Logger configuration
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+LOG_FILE = "wallet_scanner.log"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename=LOG_FILE)
 logger = logging.getLogger()
 
 # Telegram and ElectrumX server configuration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
 TELEGRAM_CHAT_ID = "1596333326"
-ELECTRUMX_SERVER_URL = "http://127.0.0.1:50001"
+ELECTRUMX_SERVER_URL = "http://127.0.0.1:50002"
 
 # Performance and concurrency settings
 MAX_WORKERS = 10
@@ -23,6 +25,18 @@ DAILY_RESET_HOUR = 0
 
 # Initialize the bot
 bot = Bot(token=TELEGRAM_TOKEN)
+
+async def reset_log_daily():
+    """Clear the log file daily at midnight."""
+    while True:
+        now = datetime.now()
+        next_run = (now + timedelta(days=1)).replace(hour=DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
+        await asyncio.sleep((next_run - now).total_seconds())
+        
+        # Clear log file
+        with open(LOG_FILE, "w"):
+            pass  # Open and immediately close the file to clear its contents
+        logger.info("Log file reset at midnight")
 
 async def notify_telegram_async(messages):
     """Send batch notifications to Telegram asynchronously."""
@@ -124,6 +138,7 @@ async def main_async():
     # Start async background tasks
     asyncio.create_task(dynamic_batch_manager())
     asyncio.create_task(daily_summary())
+    asyncio.create_task(reset_log_daily())  # Schedule daily log reset
     
     connector = aiohttp.TCPConnector(limit=MAX_WORKERS)
     async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=TIMEOUT_SECONDS)) as session:
