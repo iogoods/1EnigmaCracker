@@ -9,8 +9,22 @@ import os
 
 # Logger configuration
 LOG_FILE = "wallet_scanner.log"
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename=LOG_FILE)
+
+# Create logger instance
 logger = logging.getLogger()
+
+# Set logging to show in both the console and the file
+console_handler = logging.StreamHandler()  # Console output
+file_handler = logging.FileHandler(LOG_FILE)  # File output
+
+# Set log level and format for both handlers
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+logger.setLevel(logging.INFO)  # Set root logger level to INFO
+logger.addHandler(console_handler)  # Add console handler
+logger.addHandler(file_handler)  # Add file handler
 
 # Telegram and ElectrumX server configuration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
