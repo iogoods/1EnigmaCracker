@@ -9,23 +9,8 @@ import os
 
 # Logger configuration
 LOG_FILE = "wallet_scanner.log"
-
-# Set up logging for both file and console output
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename=LOG_FILE)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)  # Or logging.DEBUG for more detailed logs
-
-# File handler for logging to file
-file_handler = logging.FileHandler(LOG_FILE)
-file_handler.setLevel(logging.INFO)  # Set file log level to INFO or DEBUG
-file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-file_handler.setFormatter(file_formatter)
-logger.addHandler(file_handler)
-
-# Stream handler for logging to console
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)  # Set console log level to INFO or DEBUG
-stream_handler.setFormatter(file_formatter)
-logger.addHandler(stream_handler)
 
 # Telegram and ElectrumX server configuration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
@@ -73,15 +58,24 @@ def bip44_btc_address_from_seed(seed_phrase):
 
 async def check_btc_balance_async(address, session):
     """Check the BTC balance of an address asynchronously using ElectrumX server."""
-    url = f"{ELECTRUMX_SERVER_URL}/balance/{address}"
-    logger.info(f"Checking balance for address: {address}")  # Log each address check
+    url = ELECTRUMX_SERVER_URL
+    json_data = {
+        "jsonrpc": "2.0",
+        "method": "blockchain.address.get_balance",
+        "params": [address],
+        "id": 1
+    }
+    logger.info(f"Checking balance for address: {address}")
     try:
-        async with session.get(url) as response:
+        async with session.post(url, json=json_data) as response:
             if response.status == 200:
                 data = await response.json()
-                balance = data.get("confirmed", 0) / 100000000  # Convert from Satoshi to BTC
-                logger.info(f"Balance for address {address}: {balance} BTC")  # Log the balance
-                return balance
+                if "result" in data:
+                    balance = data["result"]["confirmed"] / 100000000  # Convert from Satoshi to BTC
+                    logger.info(f"Balance for address {address}: {balance} BTC")
+                    return balance
+                else:
+                    logger.warning(f"No result found for address {address}. Response: {data}")
             else:
                 logger.warning(f"Failed to fetch balance for {address}. HTTP Status: {response.status}")
     except Exception as e:
