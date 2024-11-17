@@ -8,6 +8,7 @@ import concurrent.futures
 import os
 import sys
 
+#
 # Logger-Konfiguration
 LOG_FILE = "wallet_scanner.log"
 
