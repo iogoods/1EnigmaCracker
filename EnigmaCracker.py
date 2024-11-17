@@ -34,7 +34,7 @@ logger.addHandler(file_handler)
 # Telegram und ElectrumX-Konfiguration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
 TELEGRAM_CHAT_ID = "1596333326"
-ELECTRUMX_SERVER_URL = "https://0.0.0.0:50002"  # Für SSL auf https:// ändern
+ELECTRUMX_SERVER_URL = "http://127.0.0.1:50002"  # Für SSL auf https:// ändern
 
 # Performance-Einstellungen
 MAX_WORKERS = 10
@@ -160,7 +160,7 @@ async def worker(queue, session, messages):
 
 
 async def dynamic_batch_manager():
-    """Passe die Batch-Größe dynamisch an."""
+    """Passe die Batch-Größe dynamisch an."""    
     global BATCH_SIZE
     while True:
         await asyncio.sleep(60)  # Alle 60 Sekunden prüfen
@@ -191,7 +191,8 @@ async def main_async():
     asyncio.create_task(daily_summary())
     asyncio.create_task(reset_log_daily())
     
-    connector = aiohttp.TCPConnector(limit=MAX_WORKERS)
+    # Ändere den Connector, um SSL-Zertifikatsüberprüfung zu deaktivieren
+    connector = aiohttp.TCPConnector(ssl=False)  # SSL-Verifizierung deaktivieren
     async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=TIMEOUT_SECONDS)) as session:
         seed_task = asyncio.create_task(seed_generator(queue, num_seeds))
         worker_tasks = [asyncio.create_task(worker(queue, session, messages)) for _ in range(MAX_WORKERS)]
