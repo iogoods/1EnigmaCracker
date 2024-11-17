@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from bip_utils import Bip39MnemonicGenerator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes, Bip39WordsNum
 import logging
 import sys
+import time
 
 # Logger-Konfiguration
 LOG_FILE = "wallet_scanner.log"
@@ -82,7 +83,7 @@ def bip44_btc_address_from_seed(seed_phrase):
 
 
 async def check_btc_balance_async(address, session):
-    """Prüfe den BTC-Saldo einer Adresse asynchron über den ElectrumX-Server."""
+    """Prüfe den BTC-Saldo einer Adresse asynchron über den ElectrumX-Server mit Retry-Logik."""
     url = ELECTRUMX_SERVER_URL
     json_data = {
         "jsonrpc": "2.0",
@@ -91,20 +92,29 @@ async def check_btc_balance_async(address, session):
         "id": 1
     }
     logger.info(f"Prüfe Balance für Adresse: {address}")
-    try:
-        async with session.post(url, json=json_data) as response:
-            if response.status == 200:
-                data = await response.json()
-                if "result" in data:
-                    balance = data["result"]["confirmed"] / 100000000  # Von Satoshi in BTC umrechnen
-                    logger.info(f"Balance für Adresse {address}: {balance} BTC")
-                    return balance
+    
+    retries = 3  # Maximale Anzahl an Versuchen
+    for attempt in range(retries):
+        try:
+            async with session.post(url, json=json_data) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if "result" in data:
+                        balance = data["result"]["confirmed"] / 100000000  # Von Satoshi in BTC umrechnen
+                        logger.info(f"Balance für Adresse {address}: {balance} BTC")
+                        return balance
+                    else:
+                        logger.warning(f"Kein Ergebnis für Adresse {address}. Antwort: {data}")
                 else:
-                    logger.warning(f"Kein Ergebnis für Adresse {address}. Antwort: {data}")
+                    logger.warning(f"Fehler beim Abrufen der Balance für {address}. HTTP-Status: {response.status}")
+        except Exception as e:
+            logger.error(f"Fehler beim Prüfen der Balance für Adresse {address} (Versuch {attempt + 1}): {e}")
+            if attempt < retries - 1:
+                logger.info(f"Versuche es in 5 Sekunden erneut... (Versuch {attempt + 1})")
+                await asyncio.sleep(5)  # Verzögerung von 5 Sekunden vor dem nächsten Versuch
             else:
-                logger.warning(f"Fehler beim Abrufen der Balance für {address}. HTTP-Status: {response.status}")
-    except Exception as e:
-        logger.error(f"Fehler beim Prüfen der Balance für Adresse {address}: {e}")
+                logger.error(f"Maximale Anzahl an Versuchen erreicht. Fehler konnte nicht behoben werden.")
+    
     return 0
 
 
