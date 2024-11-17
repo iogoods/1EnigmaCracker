@@ -29,7 +29,7 @@ logger.addHandler(file_handler)  # Add file handler
 # Telegram and ElectrumX server configuration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
 TELEGRAM_CHAT_ID = "1596333326"
-ELECTRUMX_SERVER_URL = "http://127.0.0.1:50002"
+ELECTRUMX_SERVER_URL = "https://127.0.0.1:50002"
 
 # Performance and concurrency settings
 MAX_WORKERS = 10
