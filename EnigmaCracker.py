@@ -7,6 +7,7 @@ from bip_utils import Bip39MnemonicGenerator, Bip39SeedGenerator, Bip44, Bip44Co
 import logging
 import ssl
 import sys
+import concurrent.futures
 
 # Logger-Konfiguration
 LOG_FILE = "wallet_scanner.log"
