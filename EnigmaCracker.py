@@ -34,7 +34,7 @@ logger.addHandler(file_handler)
 # Telegram und ElectrumX-Konfiguration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
 TELEGRAM_CHAT_ID = "1596333326"
-ELECTRUMX_SERVER_URL = "http://0.0.0.0:50002"  # Für SSL auf https:// ändern
+ELECTRUMX_SERVER_URL = "http://0.0.0.0:50001"  # Für SSL auf https:// ändern
 
 # Performance-Einstellungen
 MAX_WORKERS = 10
