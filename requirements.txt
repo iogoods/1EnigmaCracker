@@ -3,4 +3,3 @@ aiohttp
 python-dotenv
 requests
 aiogram
-concurrent
