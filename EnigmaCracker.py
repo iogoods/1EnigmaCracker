@@ -1,13 +1,12 @@
 import aiohttp
-from aiogram import Bot
 import asyncio
+import random
+from aiogram import Bot
 from datetime import datetime, timedelta
 from bip_utils import Bip39MnemonicGenerator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes, Bip39WordsNum
 import logging
-import concurrent.futures
-import os
+import ssl
 import sys
-import random
 
 # Logger-Konfiguration
 LOG_FILE = "wallet_scanner.log"
@@ -35,8 +34,6 @@ logger.addHandler(file_handler)
 # Telegram und ElectrumX-Konfiguration
 TELEGRAM_TOKEN = "7706620947:AAGLGdTIKi4dB3irOtVmHD57f1Xxa8-ZIcs"
 TELEGRAM_CHAT_ID = "1596333326"
-
-# Liste öffentlicher ElectrumX-Server (mit Portnummern)
 ELECTRUMX_SERVERS = [
     'erbium1.sytes.net',
     'ecdsa.net',
@@ -59,8 +56,7 @@ ELECTRUMX_SERVERS = [
     'elec.luggs.co',
     'btc.smsys.me'
 ]
-
-DEFAULT_PORTS = {'core': '50001', 'ssl': '50002'}
+DEFAULT_PORTS = {'core': '50001', 'e-x': '50002', 'e-s': '50003'}
 
 # Performance-Einstellungen
 MAX_WORKERS = 10
@@ -106,29 +102,36 @@ def bip44_btc_address_from_seed(seed_phrase):
     return bip44_addr_ctx.PublicKey().ToAddress()
 
 async def check_btc_balance_async(address, session, retries=3, delay=5):
-    """Prüfe den BTC-Saldo einer Adresse mit Wiederholungsversuchen und Debugging."""
+    """Prüfe den BTC-Saldo einer Adresse mit Wiederholungsversuchen und Fehlerbehandlung."""
     # Wähle zufällig einen öffentlichen ElectrumX-Server aus
     server = random.choice(ELECTRUMX_SERVERS)
-    port = DEFAULT_PORTS['core']  # Normalerweise verwenden wir den Standard-Port
+    port = DEFAULT_PORTS['core']  # Verwende Standard-Port
     url = f'http://{server}:{port}'  # URL für den Server
 
+    # Versuche, mit SSL zu verbinden (Port 50002)
+    if port == '50001':  # Unverschlüsselte Verbindung
+        url = f'http://{server}:{port}'
+    else:  # Verschlüsselte Verbindung (SSL)
+        url = f'https://{server}:50002'
+        
     json_data = {
         "jsonrpc": "2.0",
         "method": "blockchain.address.get_balance",
         "params": [address],
-        "id": 1  # Verwende 1 für id, um den Fehler zu vermeiden
+        "id": 1
     }
-    
+
     # Debugging: Ausgabe der Anfrage
     logger.debug(f"JSON Anfrage an {url}: {json_data}")
 
     for attempt in range(retries):
         try:
-            async with session.post(url, json=json_data) as response:
+            # Versuche, die Anfrage zu senden
+            async with session.post(url, json=json_data, ssl=ssl.create_default_context()) as response:
                 # Ausgabe der Serverantwort für Debugging
                 response_data = await response.json()
                 logger.debug(f"Antwort vom Server {url}: {response_data}")
-                
+
                 if response.status == 200:
                     if "result" in response_data:
                         balance = response_data["result"]["confirmed"] / 100000000  # Von Satoshi in BTC umrechnen
@@ -197,25 +200,20 @@ async def daily_summary():
         now = datetime.now()
         next_run = (now + timedelta(days=1)).replace(hour=DAILY_RESET_HOUR, minute=0)
         await asyncio.sleep((next_run - now).total_seconds())
-        summary_message = f"📊 Tägliche Wallet-Scan-Zusammenfassung:\nInsgesamt gescannte Wallets heute: {wallets_scanned_today}"
+        summary_message = f"📊 Tägliche Wallet-Scan-Zusammenfassung\nHeute gescannte Wallets: {wallets_scanned_today}"
         await notify_telegram_async([summary_message])
-        wallets_scanned_today = 0  # Reset für den nächsten Tag
+        wallets_scanned_today = 0
 
-async def main_async():
-    """Main-Funktion für das Wallet-Scannen."""
-    queue = asyncio.Queue()
+async def main():
+    """Der Haupt-Async-Loop."""
     messages = []
-    tasks = []
-
     async with aiohttp.ClientSession() as session:
-        tasks.append(asyncio.create_task(seed_generator(queue, BATCH_SIZE)))
-        tasks.append(asyncio.create_task(worker(queue, session, messages)))
-        tasks.append(asyncio.create_task(dynamic_batch_manager()))
-        tasks.append(asyncio.create_task(daily_summary()))
-        tasks.append(asyncio.create_task(reset_log_daily()))
-
-        # Warte darauf, dass alle Tasks abgeschlossen sind
-        await asyncio.gather(*tasks)
+        await asyncio.gather(
+            seed_generator(queue=asyncio.Queue(), num_seeds=100),
+            worker(queue=asyncio.Queue(), session=session, messages=messages),
+            dynamic_batch_manager(),
+            daily_summary(),
+        )
 
 if __name__ == "__main__":
-    asyncio.run(main_async())
+    asyncio.run(main())
