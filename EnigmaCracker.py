@@ -89,7 +89,7 @@ async def check_btc_balance_async(address, session):
         "jsonrpc": "2.0",
         "method": "blockchain.address.get_balance",
         "params": [address],
-        "id": 1
+        "id": None
     }
     logger.info(f"Prüfe Balance für Adresse: {address}")
     
